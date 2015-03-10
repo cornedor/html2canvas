@@ -3,6 +3,7 @@ var XHR = require('./xhr');
 var utils = require('./utils');
 var log = require('./log');
 var createWindowClone = require('./clone');
+var core = require('./core');
 var decode64 = utils.decode64;
 
 function Proxy(src, proxyUrl, document) {
@@ -32,10 +33,10 @@ function jsonp(document, url, callback) {
     return new Promise(function(resolve, reject) {
         var s = document.createElement("script");
         var cleanup = function() {
-            delete window.html2canvas.proxy[callback];
+            delete core.proxy[callback];
             document.body.removeChild(s);
         };
-        window.html2canvas.proxy[callback] = function(response) {
+      core.proxy[callback] = function(response) {
             cleanup();
             resolve(response);
         };
