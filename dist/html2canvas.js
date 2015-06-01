@@ -5,7 +5,7 @@
   Released under MIT License
 */
 
-!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.html2canvas=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.html2canvas = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 (function (process,global){
 /*!
  * @overview es6-promise - a tiny implementation of Promises/A+.
@@ -1933,8 +1933,8 @@ function html2canvas(nodeList, options) {
     var index = html2canvasCloneIndex++;
     options = options || {};
     if (options.logging) {
-        window.html2canvas.logging = true;
-        window.html2canvas.start = Date.now();
+        this.logging = true;
+        this.start = Date.now();
     }
 
     options.async = typeof(options.async) === "undefined" ? true : options.async;
@@ -2476,13 +2476,14 @@ LinearGradientContainer.prototype.stepRegExp = /((?:rgb|rgba)\(\d{1,3},\s\d{1,3}
 module.exports = LinearGradientContainer;
 
 },{"./color":5,"./gradientcontainer":11}],15:[function(require,module,exports){
+var core = require('./core');
 module.exports = function() {
-    if (window.html2canvas.logging && window.console && window.console.log) {
-        Function.prototype.bind.call(window.console.log, (window.console)).apply(window.console, [(Date.now() - window.html2canvas.start) + "ms", "html2canvas:"].concat([].slice.call(arguments, 0)));
+    if (core.logging && window.console && window.console.log) {
+        Function.prototype.bind.call(window.console.log, (window.console)).apply(window.console, [(Date.now() - core.start) + "ms", "html2canvas:"].concat([].slice.call(arguments, 0)));
     }
 };
 
-},{}],16:[function(require,module,exports){
+},{"./core":6}],16:[function(require,module,exports){
 var Color = require('./color');
 var utils = require('./utils');
 var getBounds = utils.getBounds;
@@ -2649,18 +2650,38 @@ NodeContainer.prototype.parseBackgroundSize = function(bounds, image, index) {
 
 NodeContainer.prototype.parseBackgroundPosition = function(bounds, image, index, backgroundSize) {
     var position = this.cssList('backgroundPosition', index);
+    var attachment = this.cssList('backgroundAttachment', index);
+    var isAttachmentFixed = attachment[0] === 'fixed';
     var left, top;
+    var borderLeft = 0;
+    var borderTop = 0;
 
-    if (isPercentage(position[0])){
+    if(this.borders && this.borders.borders) {
+        if(this.borders.borders[0] && this.borders.borders[0].width) {
+            borderTop = this.borders.borders[0].width;
+        }
+        if(this.borders.borders[3] && this.borders.borders[3].width) {
+            borderLeft = this.borders.borders[3].width;
+        }
+    }
+
+
+    if (isPercentage(position[0]) && isAttachmentFixed) {
+        left = (window.innerWidth - (backgroundSize || image).width) * (parseFloat(position[0]) / 100);
+    } else if (isPercentage(position[0])) {
         left = (bounds.width - (backgroundSize || image).width) * (parseFloat(position[0]) / 100);
+        left -= borderLeft * (parseFloat(position[0]) / 100);
     } else {
         left = parseInt(position[0], 10);
     }
 
     if (position[1] === 'auto') {
         top = left / image.width * image.height;
-    } else if (isPercentage(position[1])){
-        top =  (bounds.height - (backgroundSize || image).height) * parseFloat(position[1]) / 100;
+    } else if (isPercentage(position[1]) && isAttachmentFixed) {
+        top = (window.innerHeight - (backgroundSize || image).height) * parseFloat(position[1]) / 100;
+    } else if (isPercentage(position[1])) {
+        top = (bounds.height - (backgroundSize || image).height) * parseFloat(position[1]) / 100;
+        top -= borderTop * parseFloat(position[1]) / 100;
     } else {
         top = parseInt(position[1], 10);
     }
@@ -2669,6 +2690,10 @@ NodeContainer.prototype.parseBackgroundPosition = function(bounds, image, index,
         left = top / image.height * image.width;
     }
 
+    if (isAttachmentFixed) {
+        left -= bounds.left + borderLeft;
+        top -= bounds.top + borderTop;
+    }
     return {left: left, top: top};
 };
 
@@ -2743,7 +2768,7 @@ NodeContainer.prototype.getValue = function() {
     return value.length === 0 ? (this.node.placeholder || "") : value;
 };
 
-NodeContainer.prototype.MATRIX_PROPERTY = /(matrix)\((.+)\)/;
+NodeContainer.prototype.MATRIX_PROPERTY = /(matrix|matrix3d)\((.+)\)/;
 NodeContainer.prototype.TEXT_SHADOW_PROPERTY = /((rgba|rgb)\([^\)]+\)(\s-?\d+px){0,})/g;
 NodeContainer.prototype.TEXT_SHADOW_VALUES = /(-?\d+px)|(#.+)|(rgb\(.+\))|(rgba\(.+\))/g;
 NodeContainer.prototype.CLIP = /^rect\((\d+)px,? (\d+)px,? (\d+)px,? (\d+)px\)$/;
@@ -2758,6 +2783,11 @@ function parseMatrix(match) {
         return match[2].split(",").map(function(s) {
             return parseFloat(s.trim());
         });
+    } else if (match && match[1] === "matrix3d") {
+        var matrix3d = match[2].split(",").map(function(s) {
+          return parseFloat(s.trim());
+        });
+        return [matrix3d[0], matrix3d[1], matrix3d[4], matrix3d[5], matrix3d[12], matrix3d[13]];
     }
 }
 
@@ -3053,7 +3083,7 @@ NodeParser.prototype.parse = function(stack) {
     var text = stack.children.filter(isTextNode).filter(hasText);
     var positiveZindex = stack.contexts.filter(positiveZIndex); // 7. the child stacking contexts with positive stack levels (least positive first).
     negativeZindex.concat(nonInlineNonPositionedDescendants).concat(nonPositionedFloats)
-        .concat(inFlow).concat(stackLevel0).concat(text).concat(positiveZindex).forEach(function(container) {
+        .concat(inFlow).concat(text).concat(stackLevel0).concat(positiveZindex).forEach(function(container) {
             this.renderQueue.push(container);
             if (isStackingContext(container)) {
                 this.parse(container);
@@ -3542,6 +3572,10 @@ function renderableNode(node) {
 function isPositionedForStacking(container) {
     var position = container.css("position");
     var zIndex = (["absolute", "relative", "fixed"].indexOf(position) !== -1) ? container.css("zIndex") : "auto";
+    // In chrome fixed has a default zIndex of 0 instead of auto
+    if(parseInt(zIndex, 10) === 0) {
+        zIndex = "auto";
+    }
     return zIndex !== "auto";
 }
 
@@ -3656,6 +3690,7 @@ var XHR = require('./xhr');
 var utils = require('./utils');
 var log = require('./log');
 var createWindowClone = require('./clone');
+var core = require('./core');
 var decode64 = utils.decode64;
 
 function Proxy(src, proxyUrl, document) {
@@ -3685,10 +3720,10 @@ function jsonp(document, url, callback) {
     return new Promise(function(resolve, reject) {
         var s = document.createElement("script");
         var cleanup = function() {
-            delete window.html2canvas.proxy[callback];
+            delete core.proxy[callback];
             document.body.removeChild(s);
         };
-        window.html2canvas.proxy[callback] = function(response) {
+      core.proxy[callback] = function(response) {
             cleanup();
             resolve(response);
         };
@@ -3748,7 +3783,7 @@ exports.Proxy = Proxy;
 exports.ProxyURL = ProxyURL;
 exports.loadUrlDocument = loadUrlDocument;
 
-},{"./clone":4,"./log":15,"./promise":18,"./utils":29,"./xhr":31}],20:[function(require,module,exports){
+},{"./clone":4,"./core":6,"./log":15,"./promise":18,"./utils":29,"./xhr":31}],20:[function(require,module,exports){
 var ProxyURL = require('./proxy').ProxyURL;
 var Promise = require('./promise');
 
